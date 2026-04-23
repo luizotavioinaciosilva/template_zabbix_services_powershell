@@ -1,0 +1,599 @@
+zabbix_export:
+  version: '7.4'
+  template_groups:
+    - uuid: 748ad4d098d447d492bb935c907f652f
+      name: Templates/Customizados
+  templates:
+    - uuid: 3941aa18496d493e9c5b575ebecafea0
+      template: 'Template Service Metrics via PowerShell'
+      name: 'Template Service Metrics via PowerShell'
+      groups:
+        - name: Templates/Customizados
+      items:
+        - uuid: bd8ef15bb2cd4ee7a603a2f9cc6c0909
+          name: 'Get Service Discovery'
+          key: script.service.discovery
+          history: '0'
+          value_type: TEXT
+          tags:
+            - tag: component
+              value: 'powershell metrics'
+            - tag: component
+              value: raw
+      discovery_rules:
+        - uuid: f87931f54f3047b4af365b035b623bfb
+          name: 'Service Discovery'
+          type: DEPENDENT
+          key: service.discovery.rule
+          item_prototypes:
+            - uuid: 118d3601605941218cee725268746e23
+              name: 'Service {#SERVICE.DISPLAY}: CPU Time'
+              type: DEPENDENT
+              key: 'service.cpu_time[{#SERVICE.NAME}]'
+              history: 7d
+              value_type: FLOAT
+              units: s
+              description: 'Tempo total de processador (em segundos) que o serviço utilizou desde que foi iniciado. É um acumulador que ajuda a medir o esforço histórico do processo.'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.[''SERVICE.NAME''] == ''{#SERVICE.NAME}'')].[''CPU.TIME''].first()'
+              master_item:
+                key: script.service.discovery
+              tags:
+                - tag: component
+                  value: 'powershell metrics'
+                - tag: 'Service Metric'
+                  value: 'cpu time'
+                - tag: Serviço
+                  value: '{#SERVICE.NAME}'
+            - uuid: b217ed05b2d3467bac78e995690f2739
+              name: 'Service {#SERVICE.DISPLAY}: CPU Utilization'
+              type: DEPENDENT
+              key: 'service.cpu_util[{#SERVICE.NAME}]'
+              history: 7d
+              value_type: FLOAT
+              units: '%'
+              description: 'Percentual de uso de CPU consumido especificamente pelo processo deste serviço, normalizado pelo número de núcleos do processador. Valores próximos a 100% indicam que o serviço está saturando um ou mais núcleos de CPU.'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.[''SERVICE.NAME''] == ''{#SERVICE.NAME}'')].[''CPU.UTIL''].first()'
+              master_item:
+                key: script.service.discovery
+              tags:
+                - tag: component
+                  value: 'powershell metrics'
+                - tag: 'Service Metric'
+                  value: 'cpu util'
+                - tag: Serviço
+                  value: '{#SERVICE.NAME}'
+              trigger_prototypes:
+                - uuid: dd600cc329f44b46beb9260d9ada8ced
+                  expression: 'avg(/Template Service Metrics via PowerShell/service.cpu_util[{#SERVICE.NAME}],{$SERVICE.CPU.TIME.PERIOD}) > {$SERVICE.CPU.MAX.PCT}'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'avg(/Template Service Metrics via PowerShell/service.cpu_util[{#SERVICE.NAME}],{$SERVICE.CPU.TIME.PERIOD}) < {$SERVICE.CPU.RECOV.PCT}'
+                  name: 'Serviço {#SERVICE.DISPLAY}: Utilização de CPU elevada ( > {$SERVICE.CPU.MAX.PCT}%)'
+                  opdata: 'Uso de CPU: Atual: {ITEM.LASTVALUE1} (Anterior: {ITEM.PREVVALUE1})'
+                  priority: AVERAGE
+                  dependencies:
+                    - name: 'Serviço {#SERVICE.DISPLAY} não está em execução'
+                      expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])<>0'
+                      recovery_expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])=0'
+                  tags:
+                    - tag: Service
+                      value: '{#SERVICE.NAME}'
+            - uuid: 7720ed3868cd46ef9858584c0bd6ac0e
+              name: 'Service {#SERVICE.DISPLAY}: Disk Read Ops'
+              type: DEPENDENT
+              key: 'service.disk.read.ops[{#SERVICE.NAME}]'
+              history: 7d
+              value_type: FLOAT
+              units: '!ops/s'
+              description: 'Número de operações de leitura em disco por segundo (IOPS de Leitura) realizadas pelo serviço. Essencial para identificar processos que estão lendo grandes volumes de dados ou fazendo buscas intensas no banco.'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.[''SERVICE.NAME''] == ''{#SERVICE.NAME}'')].[''DISK.READ.OPS''].first()'
+                - type: CHANGE_PER_SECOND
+              master_item:
+                key: script.service.discovery
+              tags:
+                - tag: component
+                  value: 'powershell metrics'
+                - tag: 'Service Metric'
+                  value: 'disk read'
+                - tag: Serviço
+                  value: '{#SERVICE.NAME}'
+              trigger_prototypes:
+                - uuid: 4ebe5526e66d48028ea96a2b0176dfea
+                  expression: 'avg(/Template Service Metrics via PowerShell/service.disk.read.ops[{#SERVICE.NAME}],{$SERVICE.DISK.TIME.PERIOD}) > {$SERVICE.DISK.MAX.OPS}'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'avg(/Template Service Metrics via PowerShell/service.disk.read.ops[{#SERVICE.NAME}],{$SERVICE.DISK.TIME.PERIOD}) < {$SERVICE.DISK.RECOV.OPS}'
+                  name: 'Serviço {#SERVICE.DISPLAY}: Operações de LEITURA de disco elevadas ( > {$SERVICE.DISK.MAX.OPS} ops/s )'
+                  opdata: 'Leitura: Atual: {ITEM.LASTVALUE1} (Anterior: {ITEM.PREVVALUE1})'
+                  priority: AVERAGE
+                  dependencies:
+                    - name: 'Serviço {#SERVICE.DISPLAY} não está em execução'
+                      expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])<>0'
+                      recovery_expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])=0'
+                  tags:
+                    - tag: Service
+                      value: '{#SERVICE.NAME}'
+            - uuid: f87ab9221fee443da004ea4e74c5d385
+              name: 'Service {#SERVICE.DISPLAY}: Disk Write Ops'
+              type: DEPENDENT
+              key: 'service.disk.write.ops[{#SERVICE.NAME}]'
+              history: 7d
+              value_type: FLOAT
+              units: '!ops/s'
+              description: 'Número de operações de escrita em disco por segundo (IOPS de Escrita) realizadas pelo serviço. Ajuda a monitorar o volume de gravações e logs sendo gerados.'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.[''SERVICE.NAME''] == ''{#SERVICE.NAME}'')].[''DISK.WRITE.OPS''].first()'
+                - type: CHANGE_PER_SECOND
+              master_item:
+                key: script.service.discovery
+              tags:
+                - tag: component
+                  value: 'powershell metrics'
+                - tag: 'Service Metric'
+                  value: 'disk write'
+                - tag: Serviço
+                  value: '{#SERVICE.NAME}'
+              trigger_prototypes:
+                - uuid: 1e7f7dd03c3c4c088919eba90905772c
+                  expression: 'avg(/Template Service Metrics via PowerShell/service.disk.write.ops[{#SERVICE.NAME}],{$SERVICE.DISK.TIME.PERIOD}) > {$SERVICE.DISK.MAX.OPS}'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'avg(/Template Service Metrics via PowerShell/service.disk.write.ops[{#SERVICE.NAME}],{$SERVICE.DISK.TIME.PERIOD}) < {$SERVICE.DISK.RECOV.OPS}'
+                  name: 'Serviço {#SERVICE.DISPLAY}: Operações de ESCRITA de disco elevadas ( > {$SERVICE.DISK.MAX.OPS} ops/s )'
+                  opdata: 'Escrita: Atual: {ITEM.LASTVALUE1} (Anterior: {ITEM.PREVVALUE1})'
+                  priority: AVERAGE
+                  dependencies:
+                    - name: 'Serviço {#SERVICE.DISPLAY} não está em execução'
+                      expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])<>0'
+                      recovery_expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])=0'
+                  tags:
+                    - tag: Service
+                      value: '{#SERVICE.NAME}'
+            - uuid: 34cc03b15d7443f0b80b60733fc11894
+              name: 'Service {#SERVICE.DISPLAY}: Disk Read'
+              type: DEPENDENT
+              key: 'service.disk_read[{#SERVICE.NAME}]'
+              history: 7d
+              status: DISABLED
+              discover: NO_DISCOVER
+              units: ops
+              description: 'Número de operações de leitura em disco por segundo (IOPS de Leitura) realizadas pelo serviço. Essencial para identificar processos que estão lendo grandes volumes de dados ou fazendo buscas intensas no banco.'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.[''SERVICE.NAME''] == ''{#SERVICE.NAME}'')].[''DISK.READ''].first()'
+              master_item:
+                key: script.service.discovery
+              tags:
+                - tag: component
+                  value: 'powershell metrics'
+                - tag: 'Service Metric'
+                  value: 'disk read'
+                - tag: Serviço
+                  value: '{#SERVICE.NAME}'
+            - uuid: 8cb03635ed2a47e780cd5e800faa8127
+              name: 'Service {#SERVICE.DISPLAY}: Disk Write'
+              type: DEPENDENT
+              key: 'service.disk_write[{#SERVICE.NAME}]'
+              history: 7d
+              status: DISABLED
+              discover: NO_DISCOVER
+              units: ops
+              description: 'Número de operações de escrita em disco por segundo (IOPS de Escrita) realizadas pelo serviço. Ajuda a monitorar o volume de gravações e logs sendo gerados.'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.[''SERVICE.NAME''] == ''{#SERVICE.NAME}'')].[''DISK.WRITE''].first()'
+              master_item:
+                key: script.service.discovery
+              tags:
+                - tag: component
+                  value: 'powershell metrics'
+                - tag: 'Service Metric'
+                  value: 'disk write'
+                - tag: Serviço
+                  value: '{#SERVICE.NAME}'
+            - uuid: c050fe7e75d44b8b873d75d9fe3ae388
+              name: 'Service {#SERVICE.DISPLAY}: Handles'
+              type: DEPENDENT
+              key: 'service.handles[{#SERVICE.NAME}]'
+              history: 7d
+              description: 'Quantidade de identificadores de recursos (arquivos, chaves de registro, sockets) que o serviço mantém abertos. Um crescimento constante e sem queda pode indicar um "leak" de recursos.'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@[''SERVICE.NAME''] == ''{#SERVICE.NAME}'')].[''HANDLES''].first()'
+              master_item:
+                key: script.service.discovery
+              tags:
+                - tag: component
+                  value: 'powershell metrics'
+                - tag: 'Service Metric'
+                  value: handles
+                - tag: Serviço
+                  value: '{#SERVICE.NAME}'
+              trigger_prototypes:
+                - uuid: 46756f00e85d45f5b2259f31b6c162f3
+                  expression: 'last(/Template Service Metrics via PowerShell/service.handles[{#SERVICE.NAME}]) > {$SERVICE.HANDLES.MAX}'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'last(/Template Service Metrics via PowerShell/service.handles[{#SERVICE.NAME}]) < {$SERVICE.HANDLES.RECOV}'
+                  name: 'Serviço {#SERVICE.DISPLAY}: Excesso de Handles abertos ( > {$SERVICE.HANDLES.MAX} )'
+                  opdata: 'Handles: Atual: {ITEM.LASTVALUE1} (Anterior: {ITEM.PREVVALUE1})'
+                  priority: WARNING
+                  dependencies:
+                    - name: 'Serviço {#SERVICE.DISPLAY} não está em execução'
+                      expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])<>0'
+                      recovery_expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])=0'
+                  tags:
+                    - tag: Service
+                      value: '{#SERVICE.NAME}'
+            - uuid: fbffb6dd704c4ce4a583f8eb7867a2f7
+              name: 'Service {#SERVICE.DISPLAY}: Memory'
+              type: DEPENDENT
+              key: 'service.mem[{#SERVICE.NAME}]'
+              history: 7d
+              value_type: FLOAT
+              units: B
+              description: 'Quantidade de memória RAM física dedicada ao processo do serviço neste momento. No caso de bancos de dados, este valor tende a ser alto e estável conforme o cache é preenchido.'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.[''SERVICE.NAME''] == ''{#SERVICE.NAME}'')].[''MEM.USAGE''].first()'
+              master_item:
+                key: script.service.discovery
+              tags:
+                - tag: component
+                  value: 'powershell metrics'
+                - tag: 'Service Metric'
+                  value: memory
+                - tag: Serviço
+                  value: '{#SERVICE.NAME}'
+              trigger_prototypes:
+                - uuid: c2ea8fa338f04864aa0171a4ca64de57
+                  expression: 'last(/Template Service Metrics via PowerShell/service.mem[{#SERVICE.NAME}]) > {$SERVICE.MEM.MAX.BYTES}'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'last(/Template Service Metrics via PowerShell/service.mem[{#SERVICE.NAME}]) < {$SERVICE.MEM.RECOV.BYTES}'
+                  name: 'Serviço {#SERVICE.DISPLAY}: Uso de memória elevado ( > {$SERVICE.MEM.MAX.MB} MB)'
+                  opdata: 'Uso de memória: Atual: {ITEM.LASTVALUE1} (Anterior: {ITEM.PREVVALUE1})'
+                  priority: HIGH
+                  dependencies:
+                    - name: 'Serviço {#SERVICE.DISPLAY} não está em execução'
+                      expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])<>0'
+                      recovery_expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])=0'
+                  tags:
+                    - tag: Service
+                      value: '{#SERVICE.NAME}'
+            - uuid: 17c88eef9aff4d6aba4e12ef6e283ad4
+              name: 'Service {#SERVICE.DISPLAY}: Network Received'
+              type: DEPENDENT
+              key: 'service.net.received[{#SERVICE.NAME}]'
+              history: 7d
+              units: B
+              description: 'Volume de dados recebidos pela rede pelo processo do serviço (Bytes por segundo). Monitora o tráfego de entrada direcionado ao serviço.'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.[''SERVICE.NAME''] == ''{#SERVICE.NAME}'')].[''NET.RECEIVED''].first()'
+                - type: CHANGE_PER_SECOND
+              master_item:
+                key: script.service.discovery
+              tags:
+                - tag: component
+                  value: 'powershell metrics'
+                - tag: 'Service Metric'
+                  value: 'network received'
+                - tag: Serviço
+                  value: '{#SERVICE.NAME}'
+              trigger_prototypes:
+                - uuid: 94bc5aea658e43108ca379710513bebd
+                  expression: 'avg(/Template Service Metrics via PowerShell/service.net.received[{#SERVICE.NAME}],{$SERVICE.NET.TIME.PERIOD}) > {$SERVICE.NET.MAX.BYTES}'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'avg(/Template Service Metrics via PowerShell/service.net.received[{#SERVICE.NAME}],{$SERVICE.NET.TIME.PERIOD}) < {$SERVICE.NET.RECOV.BYTES}'
+                  name: 'Serviço {#SERVICE.DISPLAY}: Tráfego de rede RECEBIDO elevado ( > {$SERVICE.NET.MAX.BYTES} B/s )'
+                  opdata: 'Tráfego Recebido: Atual: {ITEM.LASTVALUE1} (Anterior: {ITEM.PREVVALUE1})'
+                  priority: AVERAGE
+                  dependencies:
+                    - name: 'Serviço {#SERVICE.DISPLAY} não está em execução'
+                      expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])<>0'
+                      recovery_expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])=0'
+                  tags:
+                    - tag: Service
+                      value: '{#SERVICE.NAME}'
+            - uuid: b51bf8cddbae4257b2b20a423232363d
+              name: 'Service {#SERVICE.DISPLAY}: Network Sent'
+              type: DEPENDENT
+              key: 'service.net.sent[{#SERVICE.NAME}]'
+              history: 7d
+              units: B
+              description: 'Volume de dados enviados para a rede pelo processo do serviço (Bytes por segundo). Útil para identificar extrações de dados ou sincronização de réplicas.'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.[''SERVICE.NAME''] == ''{#SERVICE.NAME}'')].[''NET.SENT''].first()'
+                - type: CHANGE_PER_SECOND
+              master_item:
+                key: script.service.discovery
+              tags:
+                - tag: component
+                  value: 'powershell metrics'
+                - tag: 'Service Metric'
+                  value: 'network sent'
+                - tag: Serviço
+                  value: '{#SERVICE.NAME}'
+              trigger_prototypes:
+                - uuid: 0dbdd19b6bcb4cbd82f3a2262d035d3d
+                  expression: 'avg(/Template Service Metrics via PowerShell/service.net.sent[{#SERVICE.NAME}],{$SERVICE.NET.TIME.PERIOD}) > {$SERVICE.NET.MAX.BYTES}'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'avg(/Template Service Metrics via PowerShell/service.net.sent[{#SERVICE.NAME}],{$SERVICE.NET.TIME.PERIOD}) < {$SERVICE.NET.RECOV.BYTES}'
+                  name: 'Serviço {#SERVICE.DISPLAY}: Tráfego de rede ENVIADO elevado ( > {$SERVICE.NET.MAX.BYTES} B/s )'
+                  opdata: 'Tráfego Enviado: Atual: {ITEM.LASTVALUE1} (Anterior: {ITEM.PREVVALUE1})'
+                  priority: AVERAGE
+                  dependencies:
+                    - name: 'Serviço {#SERVICE.DISPLAY} não está em execução'
+                      expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])<>0'
+                      recovery_expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])=0'
+                  tags:
+                    - tag: Service
+                      value: '{#SERVICE.NAME}'
+            - uuid: 6200c45da51c415caa57deb0c2eefa7b
+              name: 'Service {#SERVICE.DISPLAY}: Network I/O'
+              type: DEPENDENT
+              key: 'service.net_io[{#SERVICE.NAME}]'
+              history: 7d
+              value_type: FLOAT
+              status: DISABLED
+              discover: NO_DISCOVER
+              units: MB
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.[''SERVICE.NAME''] == ''{#SERVICE.NAME}'')].[''NET.IO''].first()'
+              master_item:
+                key: script.service.discovery
+              tags:
+                - tag: component
+                  value: 'powershell metrics'
+                - tag: 'Service Metric'
+                  value: network
+                - tag: Serviço
+                  value: '{#SERVICE.NAME}'
+            - uuid: cad947093baa4f50903822a3b73d1e2c
+              name: 'Service {#SERVICE.DISPLAY}: Startup Type'
+              type: DEPENDENT
+              key: 'service.startuptype[{#SERVICE.NAME}]'
+              history: 7d
+              description: 'Configuração de inicialização do serviço (0=Automático, 1=Manual, 2=Desativado, 3=Automático Atrasado, 4=Desconhecido). Monitora se houve alteração indevida na configuração de persistência do serviço.'
+              valuemap:
+                name: 'Windows Service Startup Type'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.[''SERVICE.NAME''] == ''{#SERVICE.NAME}'')].[''STARTUP.TYPE''].first()'
+              master_item:
+                key: script.service.discovery
+              tags:
+                - tag: component
+                  value: 'powershell metrics'
+                - tag: 'Service Metric'
+                  value: 'startup type'
+                - tag: Serviço
+                  value: '{#SERVICE.NAME}'
+              trigger_prototypes:
+                - uuid: 7c0f7f102bce43a0ab53b1980b3ffb5a
+                  expression: 'last(/Template Service Metrics via PowerShell/service.startuptype[{#SERVICE.NAME}]) <> 0 and last(/Template Service Metrics via PowerShell/service.startuptype[{#SERVICE.NAME}]) <> 3'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'last(/Template Service Metrics via PowerShell/service.startuptype[{#SERVICE.NAME}]) = 0 or last(/Template Service Metrics via PowerShell/service.startuptype[{#SERVICE.NAME}]) = 3'
+                  name: 'Serviço {#SERVICE.DISPLAY}: Tipo de inicialização foi alterado!'
+                  opdata: 'Tipo de inicialização: Atual: {ITEM.LASTVALUE1} (Anterior: {ITEM.PREVVALUE1})'
+                  priority: INFO
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'Serviço {#SERVICE.DISPLAY} não está em execução'
+                      expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])<>0'
+                      recovery_expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])=0'
+                  tags:
+                    - tag: Service
+                      value: '{#SERVICE.NAME}'
+            - uuid: 448b793fae8d4871a85e6026f945ca6c
+              name: 'Service {#SERVICE.DISPLAY}: Status'
+              type: DEPENDENT
+              key: 'service.status[{#SERVICE.NAME}]'
+              history: 7d
+              description: 'Estado atual do serviço no Windows (0=Running, 1=Paused,,2=Start Pending, 3=Pause Pending, 4=Continue Pending, 5=Stop Pending, 6=Stopped e 7=Unknown). É a métrica principal de disponibilidade.'
+              valuemap:
+                name: 'Windows service state'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.[''SERVICE.NAME''] == ''{#SERVICE.NAME}'')].[''STATUS.ID''].first()'
+              master_item:
+                key: script.service.discovery
+              tags:
+                - tag: component
+                  value: 'powershell metrics'
+                - tag: 'Service Metric'
+                  value: status
+                - tag: Serviço
+                  value: '{#SERVICE.NAME}'
+              trigger_prototypes:
+                - uuid: de83976ae053474a84408bd4f18289e0
+                  expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])<>0'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])=0'
+                  name: 'Serviço {#SERVICE.DISPLAY} não está em execução'
+                  opdata: 'Status atual: {ITEM.LASTVALUE1} (Anterior: {ITEM.PREVVALUE1})'
+                  priority: DISASTER
+                  tags:
+                    - tag: Service
+                      value: '{#SERVICE.NAME}'
+            - uuid: 8766c5973bf9452c8b7da3347eb63e87
+              name: 'Service {#SERVICE.DISPLAY}: Threads'
+              type: DEPENDENT
+              key: 'service.threads[{#SERVICE.NAME}]'
+              history: 7d
+              description: |
+                Representa o número de tarefas simultâneas (threads) que o processo está executando no momento. Uma thread é a menor unidade de execução que o Windows pode gerenciar.
+                
+                Monitora o nível de paralelismo do serviço. Um aumento repentino pode indicar uma sobrecarga de requisições, enquanto um crescimento constante sem redução (mesmo em períodos de ociosidade) pode sinalizar um "Thread Leak" (falha na liberação de recursos), o que pode levar ao travamento do serviço por exaustão de threads.
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@[''SERVICE.NAME''] == ''{#SERVICE.NAME}'')].[''THREADS''].first()'
+              master_item:
+                key: script.service.discovery
+              tags:
+                - tag: component
+                  value: 'powershell metrics'
+                - tag: 'Service Metric'
+                  value: threads
+                - tag: Serviço
+                  value: '{#SERVICE.NAME}'
+              trigger_prototypes:
+                - uuid: 1330d5fa6ba94d52b8774f3c306ca1c1
+                  expression: 'last(/Template Service Metrics via PowerShell/service.threads[{#SERVICE.NAME}]) > {$SERVICE.THREADS.MAX}'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'last(/Template Service Metrics via PowerShell/service.threads[{#SERVICE.NAME}]) < ({$SERVICE.THREADS.MAX} * 0.8)'
+                  name: 'Serviço {#SERVICE.DISPLAY}: Excesso de Threads ativos ( > {$SERVICE.THREADS.MAX} )'
+                  opdata: 'Threads: Atual: {ITEM.LASTVALUE1} (Anterior: {ITEM.PREVVALUE1})'
+                  priority: WARNING
+                  dependencies:
+                    - name: 'Serviço {#SERVICE.DISPLAY} não está em execução'
+                      expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])<>0'
+                      recovery_expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])=0'
+                  tags:
+                    - tag: Service
+                      value: '{#SERVICE.NAME}'
+            - uuid: 721db3da562241ff8bb094c54df31271
+              name: 'Service {#SERVICE.DISPLAY}: Uptime'
+              type: DEPENDENT
+              key: 'service.uptime[{#SERVICE.NAME}]'
+              history: 7d
+              units: s
+              description: 'Tempo total em segundos desde a última vez que o processo do serviço foi iniciado. Valores baixos podem indicar que o serviço sofreu um crash ou foi reiniciado recentemente.'
+              valuemap:
+                name: 'Windows service state'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.[''SERVICE.NAME''] == ''{#SERVICE.NAME}'')].[''UPTIME.SEC''].first()'
+              master_item:
+                key: script.service.discovery
+              tags:
+                - tag: component
+                  value: 'powershell metrics'
+                - tag: 'Service Metric'
+                  value: uptime
+                - tag: Serviço
+                  value: '{#SERVICE.NAME}'
+              trigger_prototypes:
+                - uuid: 18ba2d662a9c45dfab1379255309fe06
+                  expression: 'last(/Template Service Metrics via PowerShell/service.uptime[{#SERVICE.NAME}]) < {$SERVICE.UPTIME.MIN.SEC}'
+                  name: 'Serviço {#SERVICE.DISPLAY}: foi reiniciado recentemente (Uptime < {$SERVICE.UPTIME.MIN.SEC}s)'
+                  opdata: 'Tempo de atividade: Atual: {ITEM.LASTVALUE1} (Anterior: {ITEM.PREVVALUE1})'
+                  priority: INFO
+                  dependencies:
+                    - name: 'Serviço {#SERVICE.DISPLAY} não está em execução'
+                      expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])<>0'
+                      recovery_expression: 'last(/Template Service Metrics via PowerShell/service.status[{#SERVICE.NAME}])=0'
+                  tags:
+                    - tag: Service
+                      value: '{#SERVICE.NAME}'
+          master_item:
+            key: script.service.discovery
+          lld_macro_paths:
+            - lld_macro: '{#SERVICE.DISPLAY}'
+              path: '$.[''SERVICE.DISPLAY'']'
+            - lld_macro: '{#SERVICE.NAME}'
+              path: '$.[''SERVICE.NAME'']'
+            - lld_macro: '{#SERVICE.STARTUP}'
+              path: '$.[''STARTUP.TYPE'']'
+      macros:
+        - macro: '{$SERVICE.CPU.MAX.PCT}'
+          value: '80'
+          description: 'Limite percentual de uso de CPU para disparo do alerta.'
+        - macro: '{$SERVICE.CPU.RECOV.PCT}'
+          value: '60'
+          description: 'Valor percentual para fechamento do alerta de CPU (Histérese).'
+        - macro: '{$SERVICE.CPU.TIME.PERIOD}'
+          value: 5m
+          description: 'Período de avaliação (janela de tempo) para a média móvel de CPU.'
+        - macro: '{$SERVICE.DISK.MAX.OPS}'
+          value: '500'
+          description: 'Limite máximo de operações de disco por segundo (Read/Write Ops).'
+        - macro: '{$SERVICE.DISK.RECOV.OPS}'
+          value: '400'
+          description: 'Valor para recuperação do alerta de operações de disco (80% do limite).'
+        - macro: '{$SERVICE.DISK.TIME.PERIOD}'
+          value: 5m
+          description: 'JJanela de tempo para cálculo da média móvel de IOPS de disco.'
+        - macro: '{$SERVICE.HANDLES.MAX}'
+          description: 'Limite máximo de Handles abertos pelo processo.'
+        - macro: '{$SERVICE.HANDLES.RECOV}'
+          description: 'Valor para fechamento do alerta de excesso de Handles (Histérese).'
+        - macro: '{$SERVICE.MEM.MAX.BYTES}'
+          value: '104857600'
+          description: 'Limite máximo de RAM em BYTES. (Ex: 16GB = 17179869184).'
+        - macro: '{$SERVICE.MEM.MAX.MB}'
+          value: '100'
+          description: 'Representação amigável em MB do limite de RAM (usada apenas no nome da Trigger).'
+        - macro: '{$SERVICE.MEM.RECOV.BYTES}'
+          value: '83886080'
+          description: 'Limite de recuperação de RAM em BYTES para fechamento do alerta.'
+        - macro: '{$SERVICE.NET.MAX.BYTES}'
+          value: '10485760'
+          description: 'Limite máximo de tráfego de rede em BYTES por segundo (Ex: 10MB/s).'
+        - macro: '{$SERVICE.NET.RECOV.BYTES}'
+          value: '8388608'
+          description: 'Limite de recuperação de tráfego de rede em BYTES (80% do limite).'
+        - macro: '{$SERVICE.NET.TIME.PERIOD}'
+          value: 5m
+          description: 'Janela de tempo para cálculo da média móvel de tráfego de rede.'
+        - macro: '{$SERVICE.THREADS.MAX}'
+          value: '1000'
+          description: 'Limite máximo de Threads ativas no processo.'
+        - macro: '{$SERVICE.THREADS.RECOV}'
+          description: 'Valor para fechamento do alerta de excesso de Threads (Histérese).'
+        - macro: '{$SERVICE.UPTIME.MIN}'
+          value: '600'
+          description: 'Tempo mínimo (em segundos) de atividade para considerar o serviço estável.'
+      valuemaps:
+        - uuid: 89aed38b010643569d55a552f7806ca8
+          name: 'Windows Service Startup Type'
+          mappings:
+            - value: '0'
+              newvalue: Automático
+            - value: '1'
+              newvalue: Manual
+            - value: '2'
+              newvalue: Desativado
+            - value: '3'
+              newvalue: 'Automático (Atrasado)'
+            - value: '4'
+              newvalue: Desconhecido
+        - uuid: 2b3a4e2de3c64f0681196be6c933da44
+          name: 'Windows service state'
+          mappings:
+            - value: '0'
+              newvalue: Running
+            - value: '1'
+              newvalue: Paused
+            - value: '2'
+              newvalue: 'Start Pending'
+            - value: '3'
+              newvalue: 'Pause Pending'
+            - value: '4'
+              newvalue: 'Continue Pending'
+            - value: '5'
+              newvalue: 'Stop Pending'
+            - value: '6'
+              newvalue: Stopped
+            - value: '7'
+              newvalue: Unknown
